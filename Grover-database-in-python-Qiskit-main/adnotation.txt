@@ -1,0 +1,113 @@
+1. Define database as being the number of qubits (numqbits), the number of searched values (nvalstofind), the list of items being searched for (searchedlist), the list of indexes (indexs) and the list of values (datos)
+However, the number of registers (nregsdb) and the number of values to be searched for (nvalstofind) aren't used anywhere.
+The only things that actually make it to the search are the list of items being searched for, the list of indexes and hte list of values.
+
+2. Define the database circuit
+Worker is instantiated as Worker(self.groverobj,searchedlist,indexs,datos,self.bPurity)
+The worker then runs         self.objgrover.Search(self.searchedlist,self.indexs,self.datos,self.bPurity)
+First, the search function runs
+        nbitsval=int(self.numqbits/2)
+        nbitsindexs=int(self.numqbits/2)
+        self.qc.h(range(nbitsindexs))
+        self.qc.h(self.iqaux)       
+
+        so, it defines the just half of the qubits in the circuit to be for the values, and the second half to be for indexes
+        it then hadamards the first half of the qubits and the auxiliary qubit (which is always the last qubit in the circuit)
+        
+
+Now, the nregsdb is defined to be the length of the indexs list
+this then calls self.SetQRamDataBase(nregsdb, nbitsindexs, nbitsval, indexs, values)
+
+Now, let's adnotate the code for this function, as this actually prepares the quantum state
+
+    def SetQRamDataBase(self,numregisters, nbitsindex, nbitsvalues, indexs, values):
+        listacontrols = []
+        for i in range(nbitsindex): # So, for each index for the index bits
+            listacontrols.append(i) # appends the index to the list
+            
+        for i in range(numregisters): # and now for the length of the index list
+            strbitindexs= reversed_string(cadenabinaria(indexs[i],nbitsindex)) # This reverses the binary representation of each index
+            strbitsvalues= reversed_string(cadenabinaria(values[i],nbitsvalues)) # This reverses the binary representation of each value
+            # The reason he does this reversal is perhaps because qiskit qubits in circuits are bigendian
+            # Also he only uses a single variable since there will never be less or more values than indexes
+            
+            for k in range(nbitsvalues): # And then for each character in the strbitsvalues 
+                
+                if strbitsvalues[k] == '1': # For each 1 in reversed binary representation of each value
+                    targetbit = k + nbitsindex # He defines the targetbit to be the index in this representation PLUS the number of bits used for the index
+                    self.ctrlArrayX(listacontrols,nbitsindex,targetbit,strbitindexs)
+
+Now, for that ctrlarrayX function:
+
+    def ctrlArrayX(self,listacontrols,nbitsindex,targetbit,strbitindexs):        
+        for i in range(nbitsindex): # So for each index in the range of bits used for the index
+            if strbitindexs[i] == '0': # If it's a zero in the reversed binary representation of the index,
+                self.qc.x(listacontrols[i]) # Then he performs a pauli X on the qubits being used to represent the index
+        self.qc.mct(listacontrols,targetbit) # Finally, at the end, he does a multi control x between the qubits that represent the index and the target bit that called this function
+        
+        for i in range(nbitsindex-1,-1,-1): # Then he creates a reversed list starting from the last bit used for the index, going backwards
+            if strbitindexs[i] == '0': # If it's a zero in the reversed binary representation of the index
+                self.qc.x(listacontrols[i])  # He performs a pauli X on the qubit used for that 0 value
+
+Now, let's run through an example so we can trace the effects of this.
+Let's say our indexes are [0, 1, 2, 3, 4, 5, 6, 7] (so, 3 qubits)
+And our values are also [0, 1, 2, 3, 4, 5, 6, 7] (so, also 3 qubits)
+Then, let's define the lsit of items being searched for to be simply [3].
+Therefore: numqubits = 7 (3 for index, 3 for values)
+nvalstofind = 1
+indexs = [0, 1, 2, 3, 4, 5, 6, 7]
+datos = [0, 1, 2, 3, 4, 5, 6, 7]
+
+therefore, nbitsval = 3
+nbitsindex = 3
+He perfoms a hadamard on the 0th qubit
+He performs a hadamard on the auxiliaty qubit (the 2nd qubit)
+nregsdb is defined to be the length of the indexs list, so it's 8
+
+Then, the lines
+        listacontrols = []
+        for i in [0,1,2]: # So, for each index for the index bits
+            listacontrols.append(i) # appends the index to the list
+
+creates listacontrols = [0, 1, 2]
+
+Then, the lines 
+        for i in range(numregisters):
+            strbitindexs= reversed_string(cadenabinaria(indexs[i],nbitsindex)) 
+            strbitsvalues= reversed_string(cadenabinaria(values[i],nbitsvalues))
+
+will calculate for i in [0,1,2,3,4,5,6,7]
+    strbitindexs = 000
+    strbitsvalues = 000
+
+and then, the lines
+
+            for k in range(nbitsvalues):
+                
+                if strbitsvalues[k] == '1':
+                    targetbit = k + nbitsindex
+                    self.ctrlArrayX(listacontrols,nbitsindex,targetbit,strbitindexs)
+
+will calculate for k in [0, 1, 2]
+if strbitsvalues[0] == '1':
+    then the targetbit = 0 + 3 = 3 
+    and he will do a call to ctrlarrayx with the parameters (listacontrols=[0,1,2,3,4,5,6,7], nbitsindex=3, targetbit=3, strbitindexs=000) and iterate over every targetbit and each string representation of the index
+
+now, the function ctrlArrayX
+    def ctrlArrayX(self,listacontrols,nbitsindex,targetbit,strbitindexs):        
+        for i in range(nbitsindex):
+            if strbitindexs[i] == '0':                
+                self.qc.x(listacontrols[i])
+        self.qc.mct(listacontrols,targetbit)
+        
+        for i in range(nbitsindex-1,-1,-1):
+            if strbitindexs[i] == '0':
+                self.qc.x(listacontrols[i])  
+
+for the first call, it will:
+
+for i in [0, 1, 2]:
+    if strbitsindex[i] is equals to 0, then do a pauli x on the i th element in the listacontrolsth qubit
+
+then, after pauli x'ing every 0 bit in the string representation of the index, he does a multicontrol x between those pauli x'ed qubits (so they've been activated) and the target bit
+
