@@ -1,5 +1,6 @@
 1. Define database as being the number of qubits (numqbits), the number of searched values (nvalstofind), the list of items being searched for (searchedlist), the list of indexes (indexs) and the list of values (datos)
-However, the number of registers (nregsdb) and the number of values to be searched for (nvalstofind) aren't used anywhere.
+~~~However, the number of registers (nregsdb) and the number of values to be searched for (nvalstofind) aren't used anywhere.~~
+The number of registers (nregsdb) is actually passesd to the SetQRamDataBase function as teh first parameter. Coincidentally, nregsdb is equal to the length of indexs.
 The only things that actually make it to the search are the list of items being searched for, the list of indexes and hte list of values.
 
 2. Define the database circuit
